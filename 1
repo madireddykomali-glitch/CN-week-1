@@ -1,0 +1,90 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_COMPUTERS 5
+#define MAX_NAME_LEN 20
+#define MAC_LEN 18
+
+// Structure representing a Computer (Node)
+typedef struct {
+    char name[MAX_NAME_LEN];
+    char mac_address[MAC_LEN];
+} Computer;
+
+// Structure representing an entry in the Switch's MAC Table
+typedef struct {
+    char mac_address[MAC_LEN];
+    int port;
+} MacTableEntry;
+
+// Structure representing the Network Switch
+typedef struct {
+    MacTableEntry mac_table[MAX_COMPUTERS];
+    int device_count;
+} Switch;
+
+// Function to initialize a computer
+void init_computer(Computer *c, const char *name, const char *mac) {
+    strncpy(c->name, name, MAX_NAME_LEN);
+    strncpy(c->mac_address, mac, MAC_LEN);
+}
+
+// Function to connect a computer to a switch port (Learning phase)
+void connect_to_switch(Switch *sw, Computer *c, int port) {
+    if (sw->device_count < MAX_COMPUTERS) {
+        strncpy(sw->mac_table[sw->device_count].mac_address, c->mac_address, MAC_LEN);
+        sw->mac_table[sw->device_count].port = port;
+        sw->device_count++;
+        printf("[SWITCH] Connected %s to Port %d (Learned MAC: %s)\n", c->name, port, c->mac_address);
+    }
+}
+
+// Function to simulate packet transmission through the switch
+void send_packet(Switch *sw, Computer *sender, const char *dest_mac, const char *data) {
+    printf("\n[PACKET] %s (%s) is sending: \"%s\" to MAC: %s\n", sender->name, sender->mac_address, data, dest_mac);
+    
+    int destination_port = -1;
+    
+    // Switch looks up the destination MAC address in its MAC table
+    for (int i = 0; i < sw->device_count; i++) {
+        if (strcmp(sw->mac_table[i].mac_address, dest_mac) == 0) {
+            destination_port = sw->mac_table[i].port;
+            break;
+        }
+    }
+    
+    // Forwarding decision
+    if (destination_port != -1) {
+        printf("[SWITCH] MAC found! Unicasting packet directly to Port %d\n", destination_port);
+    } else {
+        printf("[SWITCH] MAC unknown! Flooding packet to all connected ports (Broadcast fallback)\n");
+    }
+}
+
+int main() {
+    Switch network_switch;
+    network_switch.device_count = 0;
+    
+    Computer pc1, pc2, pc3;
+    
+    // 1. Initializing individual network devices (Computers)
+    init_computer(&pc1, "PC-A", "00:1A:2B:3C:4D:5E");
+    init_computer(&pc2, "PC-B", "00:1A:2B:3C:4D:5F");
+    init_computer(&pc3, "PC-C", "00:1A:2B:3C:4D:60");
+    
+    printf("--- Connecting Computers to Create Local Area Network (LAN) ---\n");
+    // 2. Connecting devices physically to specific switch ports
+    connect_to_switch(&network_switch, &pc1, 1);
+    connect_to_switch(&network_switch, &pc2, 2);
+    connect_to_switch(&network_switch, &pc3, 3);
+    
+    // 3. Simulating network traffic delivery
+    // Case A: Unicast communication (Switch knows the destination port)
+    send_packet(&network_switch, &pc1, "00:1A:2B:3C:4D:5F", "Hello PC-B!");
+    
+    // Case B: Unknown Destination (Switch falls back to flooding/broadcasting)
+    send_packet(&network_switch, &pc2, "00:FF:FF:FF:FF:FF", "Discovery Request");
+
+    return 0;
+}
